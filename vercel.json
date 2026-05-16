@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "pnpm --filter @ctg/storefront build",
+  "outputDirectory": "apps/storefront/.next",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "devCommand": "pnpm --filter @ctg/storefront dev"
+}

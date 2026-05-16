@@ -1,0 +1,28 @@
+{
+  "name": "ctg-spare-parts-shop",
+  "private": true,
+  "packageManager": "pnpm@10.16.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "backend:seed": "turbo seed --filter=@ctg/backend",
+    "backend:dev": "turbo dev --filter=@ctg/backend",
+    "storefront:dev": "turbo dev --filter=@ctg/storefront"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.5",
+      "@types/react-dom": "19.0.5"
+    }
+  },
+  "devDependencies": {
+    "turbo": "^2.0.14",
+    "prettier": "^3.2.5"
+  }
+}
