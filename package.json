@@ -13,7 +13,11 @@
     "test": "turbo test",
     "backend:seed": "turbo seed --filter=@ctg/backend",
     "backend:dev": "turbo dev --filter=@ctg/backend",
-    "storefront:dev": "turbo dev --filter=@ctg/storefront"
+    "storefront:dev": "turbo dev --filter=@ctg/storefront",
+    "medusa": "pnpm --filter @ctg/backend exec medusa",
+    "db:migrate": "pnpm --filter @ctg/backend exec medusa db:migrate",
+    "db:seed": "pnpm --filter @ctg/backend exec medusa db:seed",
+    "backend:user": "pnpm --filter @ctg/backend exec medusa user"
   },
   "pnpm": {
     "overrides": {

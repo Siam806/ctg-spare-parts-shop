@@ -66,13 +66,20 @@ Generate secrets with: `openssl rand -hex 32`
 ### 3. Run database migrations
 
 ```bash
-cd apps/backend
+# From repo root:
+pnpm db:migrate
+
+# Or from apps/backend:
 pnpm medusa db:migrate
 ```
 
 ### 4. Create the first admin user
 
 ```bash
+# From repo root:
+pnpm backend:user -e admin@example.com -p yourpassword
+
+# Or from apps/backend:
 pnpm medusa user -e admin@example.com -p yourpassword
 ```
 
