@@ -133,6 +133,9 @@ importers:
       '@stripe/stripe-js':
         specifier: ^8.2.0
         version: 8.5.3
+      '@swc/helpers':
+        specifier: 0.5.17
+        version: 0.5.17
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
