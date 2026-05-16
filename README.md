@@ -95,9 +95,23 @@ pnpm dev
 
 Admin dashboard → [http://localhost:9000/app](http://localhost:9000/app)
 
-### 6. Get a publishable API key
+### 6. Get the publishable API key
 
-Admin → Settings → Publishable API Keys → Create.  Copy the key.
+Medusa auto-creates a **Default Publishable API Key** linked to the Default Sales Channel on first migration. Retrieve it with:
+
+```bash
+# While the backend is running:
+TOKEN=$(curl -s -X POST http://localhost:9000/auth/user/emailpass \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@ctg.com","password":"yourpassword"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+curl -s "http://localhost:9000/admin/api-keys?type=publishable" \
+  -H "Authorization: Bearer $TOKEN" \
+  | grep -o '"token":"pk_[^"]*"' | cut -d'"' -f4
+```
+
+Or go to Admin → Settings → Publishable API Keys and copy the token there.
 
 ### 7. Configure the storefront
 
