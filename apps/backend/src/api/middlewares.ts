@@ -8,8 +8,13 @@ import { COMPANY_ACCOUNT_MODULE } from "../modules/company-account"
 import CompanyAccountModuleService from "../modules/company-account/service"
 
 /**
- * Middleware that blocks unapproved B2B accounts from adding to cart or
- * proceeding to checkout. Only applies to authenticated customers.
+ * Middleware that enforces B2B ordering rules for cart mutation endpoints.
+ *
+ * Rules:
+ *  - Unauthenticated requests are rejected (B2B-only store).
+ *  - Authenticated customers must have a registered company.
+ *  - The company must be approved.
+ *  - The user's role must permit ordering (admin or buyer; not view_only).
  */
 async function requireApprovedCompany(
   req: MedusaRequest,
@@ -17,9 +22,13 @@ async function requireApprovedCompany(
   next: MedusaNextFunction
 ) {
   const customerId = (req as any).auth_context?.actor_id
+
   if (!customerId) {
-    // Not authenticated — let Medusa's own auth middleware handle it
-    next()
+    // Unauthenticated — this is a B2B-only store, so block guest ordering
+    res.status(401).json({
+      message: "You must sign in with an approved B2B account to order.",
+      code: "UNAUTHENTICATED",
+    })
     return
   }
 

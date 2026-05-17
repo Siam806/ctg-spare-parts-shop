@@ -12,11 +12,21 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import ProductPrice from "../product-price"
 import MobileActions from "./mobile-actions"
 import { useRouter } from "next/navigation"
+import LocalizedClientLink from "@modules/common/components/localized-client-link"
+
+export type CartAllowed =
+  | "allowed"
+  | "unauthenticated"
+  | "no_company"
+  | "pending"
+  | "rejected"
+  | "view_only"
 
 type ProductActionsProps = {
   product: HttpTypes.StoreProduct
   region: HttpTypes.StoreRegion
   disabled?: boolean
+  cartAllowed?: CartAllowed
 }
 
 const optionsAsKeymap = (
@@ -28,9 +38,62 @@ const optionsAsKeymap = (
   }, {})
 }
 
+/** Inline callout shown when the user cannot add to cart due to auth/approval state */
+function CartBlockedNotice({ cartAllowed }: { cartAllowed: CartAllowed }) {
+  if (cartAllowed === "unauthenticated") {
+    return (
+      <div className="text-small-regular text-ui-fg-subtle bg-ui-bg-subtle border border-ui-border-base rounded-md p-3">
+        <LocalizedClientLink href="/account" className="underline font-medium text-ui-fg-interactive">
+          Sign in
+        </LocalizedClientLink>{" "}
+        with an approved B2B account to add items to your cart.
+      </div>
+    )
+  }
+
+  if (cartAllowed === "no_company") {
+    return (
+      <div className="text-small-regular text-ui-fg-subtle bg-ui-bg-subtle border border-ui-border-base rounded-md p-3">
+        You need to{" "}
+        <LocalizedClientLink href="/account" className="underline font-medium text-ui-fg-interactive">
+          register your company
+        </LocalizedClientLink>{" "}
+        before you can order.
+      </div>
+    )
+  }
+
+  if (cartAllowed === "pending") {
+    return (
+      <div className="text-small-regular text-ui-fg-subtle bg-ui-bg-subtle border border-ui-border-base rounded-md p-3">
+        Your company account is <span className="font-medium">pending approval</span>. You will be notified once it is reviewed.
+      </div>
+    )
+  }
+
+  if (cartAllowed === "rejected") {
+    return (
+      <div className="text-small-regular text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+        Your company registration was <span className="font-medium">not approved</span>. Please contact support.
+      </div>
+    )
+  }
+
+  if (cartAllowed === "view_only") {
+    return (
+      <div className="text-small-regular text-ui-fg-subtle bg-ui-bg-subtle border border-ui-border-base rounded-md p-3">
+        Your account role (view-only) does not permit adding items to cart.
+      </div>
+    )
+  }
+
+  return null
+}
+
 export default function ProductActions({
   product,
   disabled,
+  cartAllowed = "allowed",
 }: ProductActionsProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -38,6 +101,7 @@ export default function ProductActions({
 
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
   const countryCode = useParams().countryCode as string
 
   // If there is only 1 variant, preselect the options
@@ -124,16 +188,21 @@ export default function ProductActions({
   const handleAddToCart = async () => {
     if (!selectedVariant?.id) return null
 
+    setAddError(null)
     setIsAdding(true)
 
-    await addToCart({
+    const result = await addToCart({
       variantId: selectedVariant.id,
       quantity: 1,
       countryCode,
+    }).catch((err: Error) => {
+      setAddError(err.message ?? "Failed to add item to cart.")
     })
 
     setIsAdding(false)
   }
+
+  const canAddToCart = cartAllowed === "allowed"
 
   return (
     <>
@@ -162,26 +231,38 @@ export default function ProductActions({
 
         <ProductPrice product={product} variant={selectedVariant} />
 
-        <Button
-          onClick={handleAddToCart}
-          disabled={
-            !inStock ||
-            !selectedVariant ||
-            !!disabled ||
-            isAdding ||
-            !isValidVariant
-          }
-          variant="primary"
-          className="w-full h-10"
-          isLoading={isAdding}
-          data-testid="add-product-button"
-        >
-          {!selectedVariant && !options
-            ? "Select variant"
-            : !inStock || !isValidVariant
-            ? "Out of stock"
-            : "Add to cart"}
-        </Button>
+        {canAddToCart ? (
+          <>
+            <Button
+              onClick={handleAddToCart}
+              disabled={
+                !inStock ||
+                !selectedVariant ||
+                !!disabled ||
+                isAdding ||
+                !isValidVariant
+              }
+              variant="primary"
+              className="w-full h-10"
+              isLoading={isAdding}
+              data-testid="add-product-button"
+            >
+              {!selectedVariant && !options
+                ? "Select variant"
+                : !inStock || !isValidVariant
+                ? "Out of stock"
+                : "Add to cart"}
+            </Button>
+            {addError && (
+              <p className="text-small-regular text-red-500 mt-1" data-testid="add-to-cart-error">
+                {addError}
+              </p>
+            )}
+          </>
+        ) : (
+          <CartBlockedNotice cartAllowed={cartAllowed} />
+        )}
+
         <MobileActions
           product={product}
           variant={selectedVariant}
@@ -191,7 +272,7 @@ export default function ProductActions({
           handleAddToCart={handleAddToCart}
           isAdding={isAdding}
           show={!inView}
-          optionsDisabled={!!disabled || isAdding}
+          optionsDisabled={!!disabled || isAdding || !canAddToCart}
         />
       </div>
     </>

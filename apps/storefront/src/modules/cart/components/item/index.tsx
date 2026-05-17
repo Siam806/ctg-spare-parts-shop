@@ -20,6 +20,50 @@ type ItemProps = {
   currencyCode: string
 }
 
+/**
+ * Returns a stock status label and colour class for a cart line item.
+ * Uses the variant's inventory data when available.
+ */
+export function getStockStatus(item: HttpTypes.StoreCartLineItem): {
+  label: string
+  className: string
+} {
+  const variant = item.variant
+
+  if (!variant) {
+    return { label: "Unknown", className: "text-ui-fg-muted" }
+  }
+
+  // Variant doesn't track inventory — always in stock
+  if (!variant.manage_inventory) {
+    return { label: "In stock", className: "text-green-600" }
+  }
+
+  // Back-orders are allowed — treat as available
+  if (variant.allow_backorder) {
+    return { label: "Available", className: "text-green-600" }
+  }
+
+  const available = variant.inventory_quantity ?? 0
+
+  if (available <= 0) {
+    return { label: "Out of stock", className: "text-red-500 font-medium" }
+  }
+
+  if (available < item.quantity) {
+    return {
+      label: `Only ${available} available`,
+      className: "text-orange-500 font-medium",
+    }
+  }
+
+  if (available <= 5) {
+    return { label: `${available} left`, className: "text-orange-400" }
+  }
+
+  return { label: "In stock", className: "text-green-600" }
+}
+
 const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
   const [updating, setUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,9 +84,15 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
       })
   }
 
-  // TODO: Update this to grab the actual max inventory
-  const maxQtyFromInventory = 10
-  const maxQuantity = item.variant?.manage_inventory ? 10 : maxQtyFromInventory
+  const inventoryQty = item.variant?.inventory_quantity ?? 0
+  const managesInventory = item.variant?.manage_inventory ?? false
+  const allowsBackorder = item.variant?.allow_backorder ?? false
+
+  // Max selectable quantity: capped to available stock (or 10 when untracked)
+  const maxQuantity =
+    !managesInventory || allowsBackorder ? 10 : Math.max(inventoryQty, 1)
+
+  const stockStatus = getStockStatus(item)
 
   return (
     <Table.Row className="w-full" data-testid="product-row">
@@ -70,6 +120,14 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           {item.product_title}
         </Text>
         <LineItemOptions variant={item.variant} data-testid="product-variant" />
+        {type === "full" && (
+          <Text
+            className={clx("txt-small mt-1", stockStatus.className)}
+            data-testid="product-stock-status"
+          >
+            {stockStatus.label}
+          </Text>
+        )}
       </Table.Cell>
 
       {type === "full" && (
@@ -82,7 +140,6 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
               className="w-14 h-10 p-4"
               data-testid="product-select-button"
             >
-              {/* TODO: Update this with the v2 way of managing inventory */}
               {Array.from(
                 {
                   length: Math.min(maxQuantity, 10),
