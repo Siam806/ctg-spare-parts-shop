@@ -1,5 +1,39 @@
 const { loadEnv } = require("@medusajs/utils");
+const { URL } = require("url");
+
 loadEnv("test", process.cwd());
+
+function deriveDatabaseEnvFromDatabaseUrl() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return;
+  }
+
+  try {
+    const parsed = new URL(dbUrl);
+    if (!parsed.hostname) {
+      return;
+    }
+
+    process.env.DB_HOST ??= parsed.hostname;
+    process.env.DB_PORT ??= parsed.port || "5432";
+    process.env.DB_USERNAME ??= parsed.username || "postgres";
+    process.env.DB_PASSWORD ??= parsed.password || "";
+
+    const sslMode = parsed.searchParams.get("sslmode");
+    if (sslMode) {
+      process.env.PGSSLMODE ??= sslMode;
+    }
+    else {
+      process.env.PGSSLMODE ??= "require";
+    }
+  }
+  catch (_err) {
+    // Ignore invalid DATABASE_URL and fall back to existing DB_* env vars.
+  }
+}
+
+deriveDatabaseEnvFromDatabaseUrl();
 
 module.exports = {
   transform: {

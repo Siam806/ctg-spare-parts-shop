@@ -43,6 +43,24 @@ class ProductCatalogModuleService extends MedusaService({
       return true
     })
   }
+
+  async searchDevices(filters: {
+    brand?: string
+    product_line?: string
+    serial_prefix?: string
+  }) {
+    // Get all devices and filter in memory
+    const all = await this.listDevices()
+    const filtered = all.filter((d: any) => {
+      if (filters.brand && d.brand !== filters.brand) return false
+      if (filters.product_line && d.product_line !== filters.product_line) return false
+      if (filters.serial_prefix && d.serial_number_prefix) {
+        if (!d.serial_number_prefix.toLowerCase().startsWith(filters.serial_prefix.toLowerCase())) return false
+      }
+      return true
+    })
+    return filtered
+  }
 }
 
 export default ProductCatalogModuleService

@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect, useCallback } from "react"
 import { searchSpareParts, getSparePartFilters, SparePartDetails } from "@lib/data/spare-parts"
 import SparePartsFilters, { FilterState } from "@modules/spare-parts/components/filters"
@@ -86,12 +87,22 @@ export default function SparePartsSearchTemplate() {
       <div className="flex flex-col gap-6">
         {/* Header */}
         <div>
-          <Heading level="h1" className="text-2xl font-semibold mb-2">
-            Spare Parts Catalog
-          </Heading>
-          <Text className="text-gray-600">
-            Find spare parts for CTG equipment by brand, model, or part number
-          </Text>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Heading level="h1" className="text-2xl font-semibold mb-2">
+                Spare Parts Catalog
+              </Heading>
+              <Text className="text-gray-600">
+                Find spare parts for CTG equipment by brand, model, or part number
+              </Text>
+            </div>
+            <Link 
+              href="/devices" 
+              className="text-blue-600 hover:underline whitespace-nowrap"
+            >
+              Find by Device →
+            </Link>
+          </div>
         </div>
         
         <div className="flex flex-col lg:flex-row gap-6">

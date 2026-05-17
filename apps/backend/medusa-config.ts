@@ -20,5 +20,8 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/company-account",
     },
+    {
+      resolve: "./src/modules/shipping",
+    },
   ],
 })
