@@ -68,6 +68,21 @@ export async function signup(_currentState: unknown, formData: FormData) {
     phone: formData.get("phone") as string,
   }
 
+  // B2B company fields
+  const companyForm = {
+    company_name: formData.get("company_name") as string,
+    vat_number: (formData.get("vat_number") as string) || undefined,
+    kvk_number: (formData.get("kvk_number") as string) || undefined,
+    billing_address_line_1: formData.get("billing_address_line_1") as string,
+    billing_address_line_2:
+      (formData.get("billing_address_line_2") as string) || undefined,
+    billing_city: formData.get("billing_city") as string,
+    billing_postal_code: formData.get("billing_postal_code") as string,
+    billing_province:
+      (formData.get("billing_province") as string) || undefined,
+    billing_country_code: formData.get("billing_country_code") as string,
+  }
+
   try {
     const token = await sdk.auth.register("customer", "emailpass", {
       email: customerForm.email,
@@ -92,6 +107,16 @@ export async function signup(_currentState: unknown, formData: FormData) {
     })
 
     await setAuthToken(loginToken as string)
+
+    // Register the company (B2B flow)
+    if (companyForm.company_name) {
+      const authHeaders = await getAuthHeaders()
+      await sdk.client.fetch("/store/companies", {
+        method: "POST",
+        headers: authHeaders,
+        body: companyForm,
+      })
+    }
 
     const customerCacheTag = await getCacheTag("customers")
     revalidateTag(customerCacheTag)
