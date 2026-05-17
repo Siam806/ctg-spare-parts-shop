@@ -6,6 +6,7 @@ import Refresh from "@modules/common/icons/refresh"
 
 import Accordion from "./accordion"
 import { HttpTypes } from "@medusajs/types"
+import ProductSparePartInfo from "@modules/products/components/product-spare-part-info"
 
 type ProductTabsProps = {
   product: HttpTypes.StoreProduct
@@ -16,6 +17,10 @@ const ProductTabs = ({ product }: ProductTabsProps) => {
     {
       label: "Product Information",
       component: <ProductInfoTab product={product} />,
+    },
+    {
+      label: "Spare Part Details",
+      component: <ProductSparePartInfo productId={product.id} />,
     },
     {
       label: "Shipping & Returns",

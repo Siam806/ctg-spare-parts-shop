@@ -1,5 +1,5 @@
 import { Module } from "@medusajs/framework/utils"
-import ErpModuleService from "./service.js"
+import ErpModuleService from "./service"
 
 export const ERP_MODULE = "erp"
 

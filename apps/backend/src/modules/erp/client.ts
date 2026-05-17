@@ -12,7 +12,8 @@ export interface ErpClientConfig {
 }
 
 export interface ErpResponse<T = unknown> {
-  data: T
+  data?: T
+  message?: T
 }
 
 export class ErpClient {
@@ -49,7 +50,8 @@ export class ErpClient {
     }
 
     const json = (await res.json()) as ErpResponse<T>
-    return json.data
+    // Frappe REST API returns either { data } or { message } depending on the endpoint
+    return (json.data ?? json.message) as T
   }
 
   get<T>(path: string): Promise<T> {
@@ -63,11 +65,14 @@ export class ErpClient {
   /**
    * Ping the ERPNext instance.
    * Returns the Frappe version string on success; throws on failure.
+   *
+   * Uses frappe.utils.change_log.get_versions (whitelisted in Frappe v15+).
+   * frappe.utils.version module was removed in Frappe v16.
    */
   async ping(): Promise<string> {
-    const info = await this.get<{ version: string }>(
-      "/api/method/frappe.utils.version.get_frappe_version"
+    const versions = await this.get<Record<string, { version: string }>>(
+      "/api/method/frappe.utils.change_log.get_versions"
     )
-    return info.version
+    return versions["frappe"]?.version ?? "unknown"
   }
 }

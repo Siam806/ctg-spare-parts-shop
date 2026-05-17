@@ -1,4 +1,4 @@
-import { ErpClient, ErpClientConfig } from "./client.js"
+import { ErpClient, ErpClientConfig } from "./client"
 
 /**
  * ErpModuleService

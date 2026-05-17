@@ -39,7 +39,6 @@ void (async () => {
     console.log(
       `✓ ERPNext reachable at ${ERP_BASE_URL} — Frappe version: ${version}`
     )
-    process.exit(0)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`✗ ERPNext connectivity test failed:\n  ${message}`)
