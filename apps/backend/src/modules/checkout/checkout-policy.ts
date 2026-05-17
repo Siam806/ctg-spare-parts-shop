@@ -1,3 +1,29 @@
+import { calculateVAT, VATBreakdown } from "./vat-service"
+
+export interface OrderVATBreakdownInput {
+  cartItems: Array<{ unit_price: number; quantity: number }>
+  shippingCountry: string
+  shippingCost: number // cents
+  isB2B: boolean
+  hasValidVATNumber: boolean
+}
+
+export function buildOrderVATBreakdown(input: OrderVATBreakdownInput): VATBreakdown {
+  const subtotal = input.cartItems.reduce(
+    (sum, item) => sum + item.unit_price * item.quantity,
+    0
+  )
+
+  return calculateVAT({
+    subtotal,
+    shippingCost: input.shippingCost,
+    shippingCountry: input.shippingCountry,
+    customerCountry: input.shippingCountry, // use shipping country as proxy
+    hasValidVATNumber: input.hasValidVATNumber,
+    isB2B: input.isB2B,
+  })
+}
+
 export type CheckoutAvailabilityState =
   | "in_stock"
   | "low_stock"
@@ -162,5 +188,25 @@ export function buildCheckoutAvailability(
     hasSplitShipment,
     warnings,
     items: availabilityItems,
+  }
+}
+
+export interface OrderSplitShipmentResult {
+  hasSplitShipment: boolean
+  messages: string[]
+}
+
+/**
+ * Determine whether an order's items will ship in multiple deliveries
+ * and produce buyer-facing warning messages.
+ * Pure function — delegates to buildCheckoutAvailability.
+ */
+export function buildOrderSplitShipment(
+  items: CheckoutCartItemLike[]
+): OrderSplitShipmentResult {
+  const result = buildCheckoutAvailability(items)
+  return {
+    hasSplitShipment: result.hasSplitShipment,
+    messages: result.warnings,
   }
 }

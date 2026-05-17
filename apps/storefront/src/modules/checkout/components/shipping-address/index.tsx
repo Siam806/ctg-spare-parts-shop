@@ -29,6 +29,7 @@ const ShippingAddress = ({
     "shipping_address.province": cart?.shipping_address?.province || "",
     "shipping_address.phone": cart?.shipping_address?.phone || "",
     email: cart?.email || "",
+    po_reference: (cart?.metadata?.po_reference as string) || "",
   })
 
   const countriesInRegion = useMemo(
@@ -80,6 +81,13 @@ const ShippingAddress = ({
 
     if (cart && !cart.email && customer?.email) {
       setFormAddress(undefined, customer.email)
+    }
+
+    if (cart?.metadata?.po_reference !== undefined) {
+      setFormData((prev) => ({
+        ...prev,
+        po_reference: (cart.metadata!.po_reference as string) || "",
+      }))
     }
   }, [cart]) // Add cart as a dependency
 
@@ -212,6 +220,16 @@ const ShippingAddress = ({
           value={formData["shipping_address.phone"]}
           onChange={handleChange}
           data-testid="shipping-phone-input"
+        />
+      </div>
+      <div className="mb-4">
+        <Input
+          label="PO reference (optional)"
+          name="po_reference"
+          autoComplete="off"
+          value={formData.po_reference}
+          onChange={handleChange}
+          data-testid="po-reference-input"
         />
       </div>
     </>

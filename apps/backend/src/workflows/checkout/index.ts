@@ -5,7 +5,8 @@ import {
   StepResponse,
 } from "@medusajs/framework/workflows-sdk"
 import { ModuleRegistrationName } from "@medusajs/framework/utils"
-import { calculateVAT, VATCalculationInput, VATBreakdown } from "../../modules/checkout/vat-service"
+import { VATBreakdown } from "../../modules/checkout/vat-service"
+import { buildOrderVATBreakdown, buildOrderSplitShipment } from "../../modules/checkout/checkout-policy"
 
 /**
  * Checkout Workflow
@@ -131,110 +132,6 @@ const prepareShippingAddressStep = createStep(
   }
 )
 
-// Step 2: Calculate VAT
-const calculateVATStep = createStep(
-  "calculate-vat",
-  async (
-    input: {
-      cart: any
-      shippingAddress: any
-      customer: any
-      shippingCost: number
-      vatNumber?: string
-    },
-    { container }
-  ) => {
-    const logger = container.resolve("logger")
-
-    // Calculate subtotal from cart items
-    const subtotal = input.cart.items?.reduce((sum: number, item: any) => {
-      return sum + (item.unit_price * item.quantity)
-    }, 0) || 0
-
-    // Determine if B2B and VAT number validity
-    const isB2B = input.customer?.metadata?.is_b2b === true || !!input.customer?.company_name
-    const hasValidVAT = !!input.vatNumber && input.vatNumber.length > 4
-
-    const vatInput: VATCalculationInput = {
-      subtotal,
-      shippingCost: input.shippingCost,
-      shippingCountry: input.shippingAddress.country_code,
-      customerCountry: input.shippingAddress.country_code, // For simplicity, use shipping
-      hasValidVATNumber: hasValidVAT,
-      isB2B,
-    }
-
-    const vatBreakdown = calculateVAT(vatInput)
-
-    logger.info(
-      `[Checkout] VAT calculated: ${vatBreakdown.vatRate}% (${vatBreakdown.vatCountry}), ` +
-      `amount: ${vatBreakdown.vatAmount}, reverse: ${vatBreakdown.isReverseCharge}`
-    )
-
-    return new StepResponse({ vatBreakdown })
-  }
-)
-
-// Step 3: Check for split shipments (items with different availability)
-const checkSplitShipmentStep = createStep(
-  "check-split-shipment",
-  async (input: { cart: any }, { container }) => {
-    const logger = container.resolve("logger")
-    const query = container.resolve("query")
-
-    const items = input.cart.items || []
-    const availabilityDates: Map<string, Date> = new Map()
-    const messages: string[] = []
-
-    // Check each item's availability
-    for (const item of items) {
-      const { data: variants } = await query.graph({
-        entity: "product_variant",
-        fields: ["id", "inventory_quantity", "allow_backorder", "metadata"],
-        filters: { id: item.variant_id },
-      })
-
-      const variant = variants[0]
-      if (!variant) continue
-
-      // Determine availability date
-      let availableDate: Date
-      if (variant.inventory_quantity >= item.quantity) {
-        availableDate = new Date() // In stock now
-      } else if (variant.allow_backorder) {
-        // Backorder - estimate 7 days
-        availableDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      } else {
-        // Out of stock - estimate 14 days
-        availableDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-      }
-
-      // Check for special order items
-      if (variant.metadata?.special_order) {
-        availableDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
-      }
-
-      availabilityDates.set(item.id, availableDate)
-    }
-
-    // Detect different availability dates
-    const dates = Array.from(availabilityDates.values())
-    const hasSplitShipment = dates.some((d, i) => i > 0 && d.toDateString() !== dates[0]?.toDateString())
-
-    if (hasSplitShipment) {
-      messages.push("Your order will be shipped in multiple deliveries due to different item availability")
-    }
-
-    logger.info(`[Checkout] Split shipment check: ${hasSplitShipment ? "YES" : "NO"}`)
-
-    return new StepResponse({
-      hasSplitShipment,
-      messages,
-      availabilityDates: Object.fromEntries(availabilityDates),
-    })
-  }
-)
-
 // Step 4: Create order from cart
 const createOrderStep = createStep(
   "create-order",
@@ -244,7 +141,7 @@ const createOrderStep = createStep(
       shippingAddress: any
       shippingMethodId?: string
       shippingCost: number
-      vatBreakdown: VATBreakdown
+      vatNumber?: string
       poReference?: string
       customerId: string
       metadata?: Record<string, any>
@@ -289,13 +186,37 @@ const createOrderStep = createStep(
       metadata: item.metadata || {},
     })) || []
 
-    // Calculate totals
-    const subtotal = orderItems.reduce((sum: number, item: any) => {
-      return sum + (item.unit_price * item.quantity)
-    }, 0)
+    // Calculate real VAT breakdown from cart items and shipping address
+    const cartAny = cart as any
+    const isB2B = cartAny.customer?.metadata?.is_b2b === true || !!cartAny.customer?.company_name
+    const hasValidVAT = !!input.vatNumber && input.vatNumber.length > 4
+
+    const vatBreakdown = buildOrderVATBreakdown({
+      cartItems: orderItems.map((item: any) => ({
+        unit_price: item.unit_price,
+        quantity: item.quantity,
+      })),
+      shippingCountry: input.shippingAddress.country_code,
+      shippingCost: input.shippingCost,
+      isB2B,
+      hasValidVATNumber: hasValidVAT,
+    })
+
+    // Detect split shipments from cart items (SC-05)
+    const splitShipmentWarning = buildOrderSplitShipment(
+      (cart.items || []).map((item: any) => ({
+        id: item.id,
+        title: item.title || "",
+        quantity: item.quantity,
+        variant: item.variant || null,
+        product: item.product || null,
+      }))
+    )
 
     // Create the order in pending_payment state (OM-01)
-    const order = await orderModuleService.createOrders({
+    // Cast to any: CreateOrderDTO typing doesn't expose status/payment_status/fulfillment_status
+    // fields in Medusa 2.x but the runtime accepts them.
+    const order = await (orderModuleService as any).createOrders({
       region_id: cart.region_id,
       customer_id: input.customerId,
       sales_channel_id: cart.sales_channel_id,
@@ -310,7 +231,8 @@ const createOrderStep = createStep(
       metadata: {
         ...input.metadata,
         po_reference: input.poReference || null,
-        vat_breakdown: input.vatBreakdown,
+        vat_breakdown: vatBreakdown,
+        split_shipment: splitShipmentWarning,
         original_cart_id: input.cartId,
         checkout_completed_at: new Date().toISOString(),
       },
@@ -320,7 +242,9 @@ const createOrderStep = createStep(
 
     return new StepResponse({
       orderId: order.id,
-      orderNumber: order.display_id || order.id,
+      orderNumber: String(order.display_id || order.id),
+      vatBreakdown,
+      splitShipmentWarning,
     })
   }
 )
@@ -342,7 +266,8 @@ const addShippingToOrderStep = createStep(
     const logger = container.resolve("logger")
 
     // Create a shipping method for the order
-    await orderModuleService.addShippingMethods({
+    // Cast to any: addShippingMethods is a runtime method not yet typed in Medusa 2.x IOrderModuleService
+    await (orderModuleService as any).addShippingMethods({
       order_id: input.orderId,
       name: input.service || "Standard Shipping",
       description: input.carrier ? `${input.carrier} - ${input.service}` : "Standard",
@@ -371,28 +296,13 @@ export const checkoutWorkflow = createWorkflow(
       customerId: input.customerId,
     })
 
-    // Step 2: Calculate VAT (requires cart data - we'll fetch it in the step)
-    // Note: In a real implementation, you'd fetch cart data in a separate step
-    // For now, we pass a placeholder that the step will use to fetch the real cart
-
-    // Step 3: Check for split shipments
-    // This requires cart items - also needs to be fetched
-
-    // Step 4: Create order
-    const { orderId, orderNumber } = createOrderStep({
+    // Step 4: Create order (VAT computed inside createOrderStep from cart items)
+    const { orderId, orderNumber, vatBreakdown, splitShipmentWarning } = createOrderStep({
       cartId: input.cartId,
       shippingAddress,
       shippingMethodId: input.shippingMethodId,
       shippingCost: input.shippingCost,
-      vatBreakdown: {
-        subtotal: 0,
-        shippingCost: input.shippingCost,
-        vatAmount: 0,
-        vatRate: 0,
-        total: 0,
-        isReverseCharge: false,
-        vatCountry: shippingAddress.country_code,
-      }, // Placeholder - real calculation in step
+      vatNumber: input.vatNumber,
       poReference: input.poReference,
       customerId: input.customerId,
       metadata: input.metadata,
@@ -407,23 +317,16 @@ export const checkoutWorkflow = createWorkflow(
       shippingCost: input.shippingCost,
     })
 
-    // Return checkout result
+    // Return checkout result with real VAT breakdown and split-shipment warning
     return new WorkflowResponse({
       orderId,
       orderNumber,
       status: "pending",
       paymentStatus: "pending",
       fulfillmentStatus: "not_fulfilled",
-      vatBreakdown: {
-        subtotal: 0,
-        shippingCost: input.shippingCost,
-        vatAmount: 0,
-        vatRate: 0,
-        total: input.shippingCost,
-        isReverseCharge: false,
-        vatCountry: shippingAddress.country_code,
-      },
+      vatBreakdown,
       shippingCost: input.shippingCost,
+      splitShipmentWarning,
     })
   }
 )

@@ -358,6 +358,9 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         phone: formData.get("shipping_address.phone"),
       },
       email: formData.get("email"),
+      metadata: {
+        po_reference: formData.get("po_reference") || null,
+      },
     } as any
 
     const sameAsBilling = formData.get("same_as_billing")

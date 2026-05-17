@@ -134,6 +134,20 @@ const Addresses = ({
                     </Text>
                   </div>
 
+                  {cart.metadata?.po_reference && (
+                    <div
+                      className="flex flex-col w-1/3"
+                      data-testid="po-reference-summary"
+                    >
+                      <Text className="txt-medium-plus text-ui-fg-base mb-1">
+                        PO Reference
+                      </Text>
+                      <Text className="txt-medium text-ui-fg-subtle">
+                        {cart.metadata.po_reference as string}
+                      </Text>
+                    </div>
+                  )}
+
                   <div
                     className="flex flex-col w-1/3"
                     data-testid="billing-address-summary"
