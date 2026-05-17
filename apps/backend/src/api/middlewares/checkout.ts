@@ -1,9 +1,9 @@
 import { defineMiddlewares } from "@medusajs/framework/http"
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
-import { COMPANY_ACCOUNT_MODULE } from "../modules/company-account"
-import CompanyAccountModuleService from "../modules/company-account/service"
-import { CompanyApprovalStatus } from "../modules/company-account/models/company"
-import { CompanyUserRole } from "../modules/company-account/models/company-user"
+import { COMPANY_ACCOUNT_MODULE } from "../../modules/company-account"
+import CompanyAccountModuleService from "../../modules/company-account/service"
+import { CompanyApprovalStatus } from "../../modules/company-account/models/company"
+import { CompanyUserRole } from "../../modules/company-account/models/company-user"
 
 /**
  * Middleware to ensure customer has approved company for checkout
